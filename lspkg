@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+expac --timefmt='%Y-%m-%d %T' '%l\t%n' $(comm -23 <(pacman -Qeq | sort) <(pacman -Qgq $(pacman -Qgq | cut -d' ' -f1 | uniq | tr '\n' ' ') | sort) | tr '\n' ' ') | sort

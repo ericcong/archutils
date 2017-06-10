@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+AUR_BASE_URL="https://aur.archlinux.org"
+MAUR_TMP="/tmp/maur-cache"
+
+function maur_watch()
+{
+  inotifywait -q -e modify PKGBUILD
+  yes | makepkg -sif
+  echo "Installation complete, press any key to exit."
+}
+
+case $1 in
+  "install" )
+    git clone "$AUR_BASE_URL/$2.git" $MAUR_TMP/$2 > /dev/null
+    cd $MAUR_TMP/$2
+    maur_watch &
+    vim PKGBUILD
+    ;;
+
+  "search" )
+    curl -s "$AUR_BASE_URL/rpc/?v=5&type=search&arg=$2" | jq -r '.results | .[] | .Name'
+    ;;
+
+  "info" )
+    git clone "$AUR_BASE_URL/$2.git" $MAUR_TMP/$2 > /dev/null
+    vim "$MAUR_TMP/$2/PKGBUILD"
+    ;;
+
+  "list" )
+    pacman -Qqm
+    ;;
+
+  "update" )
+    installed_pkgs=()
+    versions=()
+    pacman -Qm | {
+      while IFS= read -r line
+      do
+        parts=($line)
+        installed_pkgs+=(${parts[0]})
+        versions+=(${parts[1]})
+      done
+      query=$(printf %s"&arg[]=" ${installed_pkgs[*]})
+      latest_versions=($(curl -s --globoff "$AUR_BASE_URL/rpc/?v=5&type=info&arg[]=${query::-7}" | jq -r '.results | .[] | .Version'))
+      for (( i=0; i<${#versions[*]}; i++ ))
+      do
+        if [ "${versions[i]}" != "${latest_versions[i]}" ]; then
+          echo ${installed_pkgs[i]}: ${versions[i]} "=>" ${latest_versions[i]}
+        fi
+      done
+    }
+    ;;
+
+  *)
+    echo "Wrong command";;
+
+esac
